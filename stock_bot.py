@@ -141,10 +141,25 @@ def run_stock_job():
                 print(f"[WARNING] {target_ticker}의 {r_type} 데이터를 가져오지 못했습니다.")
                 continue 
             
-            # --- [중복 방지 체크] ---
+            # --- [중복 방지 체크 (Stateless for Render)] ---
+            # Render 등 클라우드 환경에서는 로컬 파일이 초기화되므로 WP 제목을 확인
+            recent_posts = wp_utils.get_recent_posts(limit=20) 
+            check_title_part = f"{target_ticker} {r_type} 리포트 ({filing_date})"
+            
+            is_duplicate = False
+            for p in recent_posts:
+                if check_title_part in p.get('title', ''):
+                    is_duplicate = True
+                    break
+
+            if is_duplicate:
+                print(f"[SKIP] 이미 발행된 리포트입니다(WP Check): {check_title_part}")
+                continue
+            
+            # 기존 로컬 히스토리도 체크 (로컬 실행 시 보조용)
             unique_key = f"{target_ticker}_{r_type}_{filing_date}"
             if unique_key in history:
-                print(f"[SKIP] 이미 발행된 리포트입니다: {unique_key}")
+                print(f"[SKIP] 이미 발행된 리포트입니다(Local Check): {unique_key}")
                 continue
             
             print(f"[NEW] 새로운 리포트 발견! ({filing_date}) -> 분석 시작")
@@ -335,7 +350,11 @@ def run_stock_job():
 
             title = f"{tag_str} [SEC] {target_ticker} {r_type} 리포트 ({filing_date})"
             
-            result = wp_utils.post_article(title, final_content)
+            # 카테고리 설정 (stock)
+            cat_id = wp_utils.ensure_category("stock")
+            cat_ids = [cat_id] if cat_id else []
+            
+            result = wp_utils.post_article(title, final_content, category_ids=cat_ids)
             
             if result:
                 print(f"[SUCCESS] [{target_ticker} {r_type}] 발행 완료.")

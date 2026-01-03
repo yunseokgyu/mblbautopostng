@@ -145,3 +145,47 @@ def get_recent_posts(limit=10):
     except Exception as e:
         print(f"❌ 글 목록 조회 중 에러: {e}")
         return []
+
+def ensure_category(category_name):
+    """
+    워드프레스에 카테고리가 존재하는지 확인하고, 없으면 생성합니다.
+    :param category_name: 카테고리 이름 (예: 'stock')
+    :return: 카테고리 ID (int) 또는 None
+    """
+    site_url = os.getenv("WP_URL")
+    if not site_url: return None
+    
+    headers = get_auth_header()
+    
+    # 1. 검색
+    try:
+        search_url = f"{site_url}/wp-json/wp/v2/categories"
+        params = {'search': category_name}
+        
+        resp = requests.get(search_url, headers=headers, params=params)
+        if resp.status_code == 200:
+            categories = resp.json()
+            for cat in categories:
+                if cat['name'].lower() == category_name.lower():
+                    print(f"[Category] 기존 카테고리 '{category_name}' 찾음 (ID: {cat['id']})")
+                    return cat['id']
+    except Exception as e:
+        print(f"[Category] 검색 실패: {e}")
+        
+    # 2. 생성 (없으면)
+    print(f"[Category] 카테고리 '{category_name}' 생성 시도...")
+    try:
+        create_url = f"{site_url}/wp-json/wp/v2/categories"
+        data = {'name': category_name}
+        resp = requests.post(create_url, headers=headers, json=data)
+        
+        if resp.status_code == 201:
+            new_cat = resp.json()
+            print(f"[Category] '{category_name}' 생성 완료 (ID: {new_cat['id']})")
+            return new_cat['id']
+        else:
+            print(f"[Category] 생성 실패: {resp.text}")
+            return None
+    except Exception as e:
+        print(f"[Category] 생성 중 에러: {e}")
+        return None
