@@ -1,0 +1,143 @@
+import replicate
+import cloudinary
+import cloudinary.uploader
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import yfinance as yf
+import io
+import os
+from dotenv import load_dotenv
+
+load_dotenv('credentials.env')
+
+# Cloudinary 설정
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
+
+# 한글 폰트 설정 (Windows 기준)
+try:
+    font_path = "C:/Windows/Fonts/malgun.ttf"
+    font_prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = font_prop.get_name()
+    plt.rcParams['axes.unicode_minus'] = False
+except:
+    pass
+
+# 1. 실제 주식 차트 생성 함수 (Matplotlib)
+def create_chart_image(ticker, period="1y"):
+    print(f"📈 [{ticker}] 실제 차트 그리는 중... (기간: {period})")
+    try:
+        # 데이터 수집
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period=period)
+        
+        if hist.empty:
+            print(f"⚠️ [{ticker}] 데이터가 비어있습니다.")
+            return None
+
+        # 그래프 그리기
+        plt.figure(figsize=(10, 6))
+        plt.plot(hist.index, hist['Close'], label='Close Price', color='#003366')
+        plt.title(f"{ticker} Stock Price Trend ({period})", fontsize=16, fontweight='bold')
+        plt.xlabel("Date")
+        plt.ylabel("Price ($)")
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.legend()
+        plt.tight_layout()
+        
+        # 메모리에 저장 (파일 생성 X)
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png')
+        img_buffer.seek(0)
+        plt.close()
+
+        # Cloudinary 업로드
+        print("☁️ Cloudinary로 차트 업로드 중...")
+        upload_result = cloudinary.uploader.upload(
+            img_buffer, 
+            public_id=f"chart_{ticker}",
+            overwrite=True
+        )
+        url = upload_result['secure_url']
+        print(f"✅ 차트 업로드 완료: {url}")
+        return url
+        
+    except Exception as e:
+        print(f"❌ 차트 생성 실패: {e}")
+        return None
+
+# 2. AI 일러스트 생성 함수 (Replicate)
+def create_ai_image(prompt):
+    token = os.getenv("REPLICATE_API_TOKEN")
+    if not token:
+        print("⚠️ REPLICATE_API_TOKEN이 없습니다. AI 이미지를 건너뜁니다.")
+        return None
+
+    print(f"🎨 [{prompt}] AI 이미지 생성 중 (Replicate)...")
+    try:
+        # Replicate로 생성 (SDXL 모델 사용 - 고퀄리티/가성비)
+        # stability-ai/sdxl 모델 사용
+        output = replicate.run(
+            "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+            input={
+                "prompt": f"financial illustration, {prompt}, high quality, digital art, 4k", 
+                "width": 1024, 
+                "height": 1024
+            }
+        )
+        # output is usually a list of URLs
+        if isinstance(output, list) and len(output) > 0:
+            temp_url = output[0]
+        else:
+            temp_url = output
+
+        print(f"🎨 이미지 생성 완료. Cloudinary로 이동 중...")
+        
+        # Cloudinary 업로드 (영구 저장)
+        upload_result = cloudinary.uploader.upload(temp_url)
+        url = upload_result['secure_url']
+        print(f"✅ AI 이미지 업로드 완료: {url}")
+        return url
+
+    except Exception as e:
+        print(f"❌ AI 이미지 실패: {e}")
+        return None
+
+def fetch_free_image(query):
+    """
+    Pexels API를 사용하여 무료 이미지를 검색하고 URL을 반환합니다.
+    (API Key가 없으면 None 반환)
+    """
+    api_key = os.getenv("PEXELS_API_KEY")
+    if not api_key:
+        print("⚠️ PEXELS_API_KEY가 없습니다. 무료 이미지를 건너뜁니다.")
+        return None
+
+    print(f"📷 [{query}] 무료 이미지 검색 중 (Pexels)...")
+    try:
+        import requests
+        headers = {'Authorization': api_key}
+        params = {'query': query, 'per_page': 1, 'orientation': 'landscape'}
+        response = requests.get('https://api.pexels.com/v1/search', headers=headers, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data['photos']:
+                # 원본(original) 대신 large2x나 large 사용
+                img_url = data['photos'][0]['src']['large']
+                print(f"✅ 무료 이미지 확보: {img_url}")
+                # Cloudinary로 재업로드 (선택사항이나, 외부 링크 유효성을 위해 권장)
+                upload = cloudinary.uploader.upload(img_url)
+                return upload['secure_url']
+            else:
+                print("⚠️ 검색 결과가 없습니다.")
+                return None
+        else:
+            print(f"❌ Pexels API 오류: {response.text}")
+            return None
+    except Exception as e:
+        print(f"❌ 무료 이미지 검색 실패: {e}")
+        return None

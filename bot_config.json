@@ -1,0 +1,63 @@
+{
+    "stock": {
+        "tickers": [
+            "MMM",
+            "TSLA",
+            "@DIVIDEND_KINGS",
+            "@SP500_COMMUNICATION_SERVICES",
+            "@SP500_CONSUMER_DISCRETIONARY",
+            "@SP500_CONSUMER_STAPLES",
+            "@SP500_ENERGY",
+            "@SP500_FINANCIALS",
+            "@SP500_HEALTH_CARE",
+            "@SP500_INDUSTRIALS",
+            "@SP500_INFORMATION_TECHNOLOGY",
+            "@SP500_MATERIALS",
+            "@SP500_REAL_ESTATE",
+            "@SP500_UTILITIES",
+            "@SP500_OTHERS"
+        ],
+        "report_types": [
+            "10-K"
+        ]
+    },
+    "marketing": {
+        "keywords": [
+            "구글",
+            "메타",
+            "네이버",
+            "인스타그램",
+            "AI 콘텐츠",
+            "ChatGPT",
+            "OpenAI"
+        ]
+    },
+    "grant": {
+        "sources": [],
+        "categories": {
+            "사업화자금": [
+                "예비창업패키지",
+                "초기창업패키지",
+                "청년창업",
+                "사업화신속지원"
+            ],
+            "마케팅_해외진출": [
+                "수출바우처",
+                "글로벌강소기업",
+                "마케팅지원",
+                "홍보영상제작"
+            ],
+            "R&D_기술개발": [
+                "디딤돌과제",
+                "팁스(TIPS)",
+                "산학연협력",
+                "기술개발사업"
+            ],
+            "소상공인_융자": [
+                "소상공인정책자금",
+                "스마트상점",
+                "희망리턴패키지"
+            ]
+        }
+    }
+}

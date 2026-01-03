@@ -1,0 +1,20 @@
+# Environment variables
+credentials.env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Data (Sensitive or Generated)
+stock_data/published_history.json
+bot_status*.json
+reports/
+
+# OS
+.DS_Store
+Thumbs.db

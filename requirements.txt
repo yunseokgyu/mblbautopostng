@@ -1,0 +1,16 @@
+requests
+schedule
+python-dotenv
+feedparser
+google-generativeai
+beautifulsoup4
+yfinance
+python-docx
+lxml
+pandas
+markdown
+streamlit
+watchdog
+matplotlib
+cloudinary
+replicate
