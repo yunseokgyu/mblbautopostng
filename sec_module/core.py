@@ -122,9 +122,10 @@ def extract_sections(html_content):
     print(f"Extracted {len(text)} characters.")
     return text
 
-def chunk_text(text, chunk_size=30000):
+def chunk_text(text, chunk_size=2000000):
     """
     Split text into chunks of approximately chunk_size characters.
+    (Default increased to 2M to allow single-pass processing for most 10-Ks)
     """
     return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
