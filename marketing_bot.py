@@ -132,11 +132,38 @@ def run_marketing_job():
     # 본문 구성 (마크다운 백틱 제거 등 정제)
     clean_html = ai_summary_html.replace("```html", "").replace("```", "")
 
+    # 이미지 추가 (Cloudinary Optimized) (무료 이미지 5개)
+    images_html = ""
+    try:
+        from image_factory import fetch_free_images
+        
+        # 검색 키워드 선정 (첫 번째 설정 키워드 사용)
+        search_query = keywords[0] if keywords else "Technology Business"
+        
+        # Pexels 검색 & Cloudinary 업로드
+        img_urls = fetch_free_images(search_query, count=5)
+        
+        if not img_urls and keywords:
+             # Fallback
+             img_urls = fetch_free_images("Artificial Intelligence", count=5)
+
+        if img_urls:
+            print(f"   -> {len(img_urls)}개 이미지 준비됨 (Cloudinary Optimized)")
+            images_html += '<div style="margin-top: 30px;"><h3>📷 관련 이미지 (Trend Photos)</h3>'
+            images_html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
+            for u in img_urls:
+                images_html += f'<img src="{u}" style="width: 48%; height: auto; object-fit: cover; border-radius: 5px; margin-bottom: 10px;" loading="lazy">'
+            images_html += '</div></div>'
+            
+    except Exception as e:
+        print(f"   [Image Attachment Error] {e}")
+
     content = f"""
     <p>안녕하세요. <strong>MBLB 자동화 봇</strong>입니다.<br>
     {today} 기준, 주요 IT 플랫폼(구글, 메타, 네이버 등)과 생성형 AI 시장의 핵심 흐름을 정리해드립니다.</p>
     <hr>
     {clean_html}
+    {images_html}
     <hr>
     <p style="font-size:0.8em; color:gray; text-align:center;">
         ※ 본 리포트는 실시간 뉴스를 바탕으로 AI가 자동 분석/작성하였습니다.<br>

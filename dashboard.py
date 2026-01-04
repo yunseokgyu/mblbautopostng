@@ -332,39 +332,163 @@ with tab3:
                     save_config(config)
                     st.rerun()
         
+        # RSS 관리 섹션 이동됨
+        pass
+
+    with col2:
+        st.subheader("🏛️ 정부 공고 사이트 관리")
+        st.caption("공식 사이트 직접 수집 (On/Off)")
+        
+        # 크롤러 설정 (config['grant']['crawlers'])
+        # 기본값: 모두 True
+        defaults = {'kstartup': True, 'sbiz': True, 'export': True, 'mssd': True}
+        current_crawlers = config.get('grant', {}).get('crawlers', defaults)
+        
+        # 4개의 토글 스위치
+        c1, c2 = st.columns(2)
+        with c1:
+            use_kstartup = st.toggle("K-Startup (창업넷)", value=current_crawlers.get('kstartup', True))
+            use_sbiz = st.toggle("소상공인24", value=current_crawlers.get('sbiz', True))
+        with c2:
+            use_export = st.toggle("수출바우처", value=current_crawlers.get('export', True))
+            use_mssd = st.toggle("제조바우처(중기부)", value=current_crawlers.get('mssd', True))
+        
+        # 저장 로직
+        new_state = {
+            'kstartup': use_kstartup,
+            'sbiz': use_sbiz,
+            'export': use_export,
+            'mssd': use_mssd
+        }
+        
+        if new_state != current_crawlers:
+            if 'grant' not in config: config['grant'] = {}
+            config['grant']['crawlers'] = new_state
+            save_config(config)
+            st.rerun()
+
         st.markdown("---")
-        st.subheader("🔗 RSS 소스 관리 (직접 수집)")
+        st.write("**➕ 나만의 수집 사이트 추가 (RSS)**")
+        st.caption("RSS 피드를 지원하는 모든 정부 기관 사이트를 추가할 수 있습니다.")
+        
         current_sources = config.get('grant', {}).get('sources', [])
         
-        # 소스 목록 표시 및 삭제
+        # RSS 목록
         if current_sources:
+            st.caption("RSS 피드 (XML)")
             for s_idx, source_url in enumerate(current_sources):
-                c1, c2 = st.columns([4, 1])
-                c1.text(source_url)
-                if c2.button("삭제", key=f"del_src_{s_idx}"):
+                rc1, rc2 = st.columns([3, 1])
+                rc1.text(f"🔗 {source_url}")
+                if rc2.button("삭제", key=f"del_src_{s_idx}"):
                     current_sources.pop(s_idx)
                     config['grant']['sources'] = current_sources
                     save_config(config)
                     st.rerun()
-        else:
-            st.info("등록된 RSS 소스가 없습니다.")
-            
-        # 소스 추가
-        new_rss_url = st.text_input("새 RSS URL 추가", placeholder="https://.../rss").strip()
-        if st.button("➕ RSS 추가"):
-            if new_rss_url:
-                if new_rss_url not in current_sources:
-                    current_sources.append(new_rss_url)
-                    config['grant']['sources'] = current_sources
+        
+        # AI 수집 목록
+        current_ai_sources = config.get('grant', {}).get('ai_sources', [])
+        if current_ai_sources:
+            st.caption("AI 스마트 수집 (Beta)")
+            for a_idx, ai_url in enumerate(current_ai_sources):
+                ac1, ac2 = st.columns([3, 1])
+                ac1.text(f"🤖 {ai_url}")
+                if ac2.button("삭제", key=f"del_ai_{a_idx}"):
+                    current_ai_sources.pop(a_idx)
+                    config['grant']['ai_sources'] = current_ai_sources
                     save_config(config)
-                    st.success("추가되었습니다!")
                     st.rerun()
-                else:
-                    st.warning("이미 등록된 URL입니다.")
-            else:
-                st.warning("URL을 입력해주세요.")
 
-    with col2:
+        if not current_sources and not current_ai_sources:
+            st.caption("(추가된 사이트 없음)")
+            
+        # 추가 logic
+        with st.expander("사이트 추가하기", expanded=True):
+            st.info("💡 팁: 여러 사이트를 넣고 싶으면 줄바꿈으로 구분해서 입력하세요.")
+            
+            # 입력값 세션 상태 초기화 (bulk_input이 없으면 빈 문자열)
+            if "bulk_input" not in st.session_state:
+                st.session_state["bulk_input"] = ""
+
+            new_rss_text = st.text_area("사이트 주소 입력 (여러 개 가능)", 
+                                        placeholder="예:\nhttps://www.korea.kr\nhttps://www.bizinfo.go.kr", 
+                                        key="bulk_input",
+                                        height=100)
+            
+            if st.button("등록 (일괄 처리)", key="add_rss_btn"):
+                urls = [u.strip() for u in new_rss_text.split('\n') if u.strip()]
+                
+                if urls:
+                    added_count = 0
+                    with st.spinner(f"{len(urls)}개 사이트 분석 중..."):
+                        import requests
+                        from bs4 import BeautifulSoup
+                        from urllib.parse import urljoin
+                        headers = {'User-Agent': 'Mozilla/5.0'}
+
+                        for target_url in urls:
+                            st.write(f"🔍 분석 중: **{target_url}**")
+                            # 1. 중복 체크
+                            if target_url in current_sources or target_url in current_ai_sources:
+                                st.warning(f"  - 이미 등록된 URL입니다: {target_url}")
+                                continue
+                            
+                            # 2. RSS 자동 탐지 시도
+                            final_url = target_url
+                            found_rss = False
+                            try:
+                                resp = requests.get(target_url, headers=headers, timeout=5)
+                                if resp.status_code == 200:
+                                    if resp.text.strip().startswith('<?xml') or '<rss' in resp.text:
+                                        found_rss = True
+                                        final_url = target_url
+                                    else:
+                                        soup = BeautifulSoup(resp.text, 'html.parser')
+                                        rss_link = soup.find('link', type='application/rss+xml')
+                                        if not rss_link: rss_link = soup.find('link', type='application/atom+xml')
+                                        if rss_link and rss_link.get('href'):
+                                            found_rss = True
+                                            final_url = urljoin(target_url, rss_link.get('href'))
+                                        else:
+                                            # Common paths
+                                            for path in ['/rss', '/feed', '/board/rss']:
+                                                try_url = urljoin(target_url, path)
+                                                try_resp = requests.get(try_url, headers=headers, timeout=3)
+                                                if try_resp.status_code == 200 and '<rss' in try_resp.text:
+                                                    found_rss = True
+                                                    final_url = try_url
+                                                    break
+                            except:
+                                pass # Error handling silent for bulk
+                            
+                            # 3. 등록
+                            if found_rss:
+                                current_sources.append(final_url)
+                                st.success(f"  - RSS 발견! (RSS 목록에 추가): {final_url}")
+                                added_count += 1
+                            else:
+                                # RSS 없으면 -> AI 목록으로 자동 배정
+                                current_ai_sources.append(target_url)
+                                st.info(f"  - RSS 없음 -> (AI 수집 목록에 추가): {target_url}")
+                                added_count += 1
+                    
+                    if added_count > 0:
+                        config['grant']['sources'] = current_sources
+                        config['grant']['ai_sources'] = current_ai_sources
+                        save_config(config)
+                        st.success(f"총 {added_count}개 사이트 등록 완료!")
+                        # 입력창 비우기 (Rerun 시 session_state 초기화 필요하면 여기서 처리하거나, rerun으로 해결)
+                        # 여기서는 rerun하면 text_area가 session_state 값으로 유지됨.
+                        # 따라서 session_state를 비워줘야 함.
+                        # st.session_state["bulk_input"] = "" -> 하지만 rerun 직전에 바꾸면 적용 안될 수 있음.
+                        # callback을 쓰는게 낫지만, 여기선 rerun으로 처리.
+                        time.sleep(1) # 결과 읽을 시간
+                        st.rerun()
+                    else:
+                        st.warning("추가된 사이트가 없습니다.")
+                else:
+                    st.warning("URL을 입력해주세요.")
+        
+        st.markdown("---")
         st.subheader("🚀 실행 옵션")
         
         # Dry Run 토글

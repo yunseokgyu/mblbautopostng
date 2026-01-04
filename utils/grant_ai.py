@@ -50,3 +50,45 @@ def analyze_grant_as_expert(grant_title, grant_description, grant_link):
         return response.text
     except Exception as e:
         return f"⚠️ 분석 중 오류 발생: {str(e)}"
+
+def extract_announcements_from_html(html_content, base_url=""):
+    """
+    HTML 원문을 AI에게 주어 공고 리스트(제목, 링크, 날짜)를 추출합니다.
+    (RSS가 없는 사이트용 '만능 스크래퍼')
+    """
+    if not GEMINI_API_KEY:
+        return []
+
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    
+    # HTML이 너무 길면 자름 (토큰 비용 절약 및 에러 방지)
+    # 2.0 Flash는 1M 토큰까지 가능하므로 넉넉하게 잡음
+    truncated_html = html_content[:200000] 
+
+    prompt = f"""
+    아래는 웹페이지의 HTML 소스코드입니다.
+    여기서 '지원사업 공고' 또는 '게시판 목록'에 해당하는 항목들을 찾아서 JSON 형식으로 추출해주세요.
+    
+    [추출 규칙]
+    1. **JSON 포맷**: [{{"title": "제목", "link": "전체URL", "date": "날짜"}}]
+    2. **링크 복원**: HTML 내의 링크가 상대경로(/bbs/...)라면 Base URL ({base_url})을 조합해서 완성된 URL로 만들어주세요. Javascript(func()) 형태라면 가능한 경우 유추하거나 비워두세요.
+    3. **정확성**: 메뉴나 배너 광고가 아닌, 실제 '게시글 리스트'만 추출하세요.
+    4. 항목이 없으면 빈 리스트 []를 반환하세요.
+    5. 오직 JSON 데이터만 반환하세요 (마크다운 코드블럭 없이).
+
+    [Base URL]
+    {base_url}
+
+    [HTML Source]
+    {truncated_html}
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        text = response.text.replace('```json', '').replace('```', '').strip()
+        import json
+        items = json.loads(text)
+        return items
+    except Exception as e:
+        print(f"[AI Scraper Error] {e}")
+        return []

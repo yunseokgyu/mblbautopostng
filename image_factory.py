@@ -17,14 +17,25 @@ cloudinary.config(
     api_secret=os.getenv("CLOUDINARY_API_SECRET")
 )
 
-# 한글 폰트 설정 (Windows 기준)
-try:
+# 한글 폰트 설정 (Windows/Linux)
+font_path = None
+if os.path.exists("C:/Windows/Fonts/malgun.ttf"):
     font_path = "C:/Windows/Fonts/malgun.ttf"
-    font_prop = fm.FontProperties(fname=font_path)
-    plt.rcParams['font.family'] = font_prop.get_name()
-    plt.rcParams['axes.unicode_minus'] = False
-except:
-    pass
+elif os.path.exists("/usr/share/fonts/truetype/nanum/NanumGothic.ttf"):
+    font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+elif os.path.exists("/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"):
+    font_path = "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"
+
+if font_path:
+    try:
+        font_prop = fm.FontProperties(fname=font_path)
+        plt.rcParams['font.family'] = font_prop.get_name()
+        plt.rcParams['axes.unicode_minus'] = False
+        print(f"✅ Font loaded: {font_path}")
+    except Exception as e:
+        print(f"⚠️ Font loading failed: {e}")
+else:
+    print("⚠️ No suitable Korean font found. Using default.")
 
 # 1. 실제 주식 차트 생성 함수 (Matplotlib)
 def create_chart_image(ticker, period="1y"):
@@ -106,38 +117,53 @@ def create_ai_image(prompt):
         print(f"❌ AI 이미지 실패: {e}")
         return None
 
-def fetch_free_image(query):
+def fetch_free_images(query, count=1):
     """
-    Pexels API를 사용하여 무료 이미지를 검색하고 URL을 반환합니다.
-    (API Key가 없으면 None 반환)
+    Pexels API를 사용하여 무료 이미지를 검색하고, Cloudinary에 업로드한 후 URL 리스트를 반환합니다.
+    (WP 용량 최적화를 위해 외부 호스팅 URL 사용)
+    :param query: 검색 키워드
+    :param count: 가져올 이미지 개수
+    :return: Cloudinary 이미지 URL 리스트
     """
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         print("⚠️ PEXELS_API_KEY가 없습니다. 무료 이미지를 건너뜁니다.")
-        return None
+        return []
 
-    print(f"📷 [{query}] 무료 이미지 검색 중 (Pexels)...")
+    print(f"📷 [{query}] 무료 이미지 {count}장 검색 중 (Pexels)...")
     try:
         import requests
         headers = {'Authorization': api_key}
-        params = {'query': query, 'per_page': 1, 'orientation': 'landscape'}
+        params = {'query': query, 'per_page': count, 'orientation': 'landscape'}
         response = requests.get('https://api.pexels.com/v1/search', headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
+            cloudinary_urls = []
+            
             if data['photos']:
-                # 원본(original) 대신 large2x나 large 사용
-                img_url = data['photos'][0]['src']['large']
-                print(f"✅ 무료 이미지 확보: {img_url}")
-                # Cloudinary로 재업로드 (선택사항이나, 외부 링크 유효성을 위해 권장)
-                upload = cloudinary.uploader.upload(img_url)
-                return upload['secure_url']
+                print(f"   -> Pexels에서 {len(data['photos'])}장 발견. Cloudinary 업로드 시작...")
+                for photo in data['photos']:
+                    try:
+                        # 원본(original) 대신 large2x나 large 사용
+                        img_url = photo['src']['large']
+                        
+                        # Cloudinary 업로드
+                        upload = cloudinary.uploader.upload(img_url)
+                        c_url = upload['secure_url']
+                        cloudinary_urls.append(c_url)
+                        print(f"      ☁️ Uploaded: {c_url}")
+                    except Exception as e:
+                        print(f"      ❌ Cloudinary upload failed: {e}")
+
+                print(f"✅ 총 {len(cloudinary_urls)}장 Cloudinary 준비 완료")
+                return cloudinary_urls
             else:
                 print("⚠️ 검색 결과가 없습니다.")
-                return None
+                return []
         else:
             print(f"❌ Pexels API 오류: {response.text}")
-            return None
+            return []
     except Exception as e:
         print(f"❌ 무료 이미지 검색 실패: {e}")
-        return None
+        return []
