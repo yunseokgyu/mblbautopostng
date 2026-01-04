@@ -224,8 +224,9 @@ def run_stock_job():
             
             # 2. 무료 이미지 수집
             for k in free_keywords:
-                url = image_factory.fetch_free_image(k)
-                if url: additional_images.append(url)
+                urls = image_factory.fetch_free_images(k, count=1)
+                if urls:
+                    additional_images.append(urls[0])
                 
             print(f"[INFO] 총 {len(additional_images)}개의 추가 이미지가 준비되었습니다.")
 
