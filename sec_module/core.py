@@ -108,6 +108,19 @@ def get_sec_data(ticker, form_type="10-K"):
         print(f"[{ticker}] Error downloading HTML: {e}")
         return None, None
 
+def download_filing_html(url):
+    """
+    Download the HTML content from the given SEC URL.
+    """
+    try:
+        response = requests.get(url, headers=SEC_HEADERS)
+        response.raise_for_status()
+        time.sleep(0.1)
+        return response.text
+    except Exception as e:
+        print(f"[ERROR] Failed to download SEC filing: {e}")
+        return None
+
 def extract_sections(html_content):
     """
     Extract full text from the 10-K HTML, stripping tags.

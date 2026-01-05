@@ -134,15 +134,21 @@ def run_stock_job():
         for r_type in report_types:
             print(f"[TARGET] 분석 대상: {target_ticker} ({r_type})")
 
-            # 3. SEC 데이터 수집
-            html_content, filing_date = core.get_sec_data(target_ticker, form_type=r_type)
+            # 3. SEC 데이터 수집 (최적화 적용)
+            # 1단계: 메타데이터만 먼저 확인 (CIK -> URL & Date)
+            cik = core.get_cik_from_ticker(target_ticker)
+            if not cik:
+                print(f"[ERROR] CIK 찾기 실패: {target_ticker}")
+                continue
+                
+            filing_url, filing_date = core.get_latest_filing_url(cik, target_ticker, form_type=r_type)
             
-            if not html_content:
-                print(f"[WARNING] {target_ticker}의 {r_type} 데이터를 가져오지 못했습니다.")
-                continue 
+            if not filing_url:
+                print(f"[WARNING] {target_ticker}의 {r_type} 데이터를 찾을 수 없습니다.")
+                continue
             
+            # 2단계: 중복 검사 (다운로드 전에 실행!)
             # --- [중복 방지 체크 (Stateless for Render)] ---
-            # Render 등 클라우드 환경에서는 로컬 파일이 초기화되므로 WP 제목을 확인
             recent_posts = wp_utils.get_recent_posts(limit=20) 
             check_title_part = f"{target_ticker} {r_type} 리포트 ({filing_date})"
             
@@ -154,15 +160,24 @@ def run_stock_job():
 
             if is_duplicate:
                 print(f"[SKIP] 이미 발행된 리포트입니다(WP Check): {check_title_part}")
+                # 이미 발행되었으므로 다운로드 하지 않음! (트래픽 절약의 핵심)
                 continue
             
-            # 기존 로컬 히스토리도 체크 (로컬 실행 시 보조용)
+            # 기존 로컬 히스토리도 체크
             unique_key = f"{target_ticker}_{r_type}_{filing_date}"
-            if unique_key in history:
+            # history.get(key)가 True일 때만 스킵 (False면 재시도 허용)
+            if history.get(unique_key):
                 print(f"[SKIP] 이미 발행된 리포트입니다(Local Check): {unique_key}")
                 continue
             
-            print(f"[NEW] 새로운 리포트 발견! ({filing_date}) -> 분석 시작")
+            # 3단계: 실제 다운로드 (중복이 아닐 때만)
+            print(f"[NEW] 새로운 리포트 발견! ({filing_date}) -> 다운로드 시작...")
+            html_content = core.download_filing_html(filing_url)
+            
+            if not html_content:
+                print(f"[WARNING] {target_ticker} 다운로드 실패")
+                continue 
+            
             print(f"[INFO] {r_type} 데이터 확보 완료 ({filing_date})")
 
             # 4. 데이터 전처리
