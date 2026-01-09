@@ -91,17 +91,18 @@ def run_stock_job():
     final_items = list(unique_items.values())
     total_tickers = len(final_items)
     print(f"[INFO] 총 분석 대상: {total_tickers}개 종목")
-    update_status("running", f"[INFO] 분석 대상 확정: {total_tickers}개 종목 대기 중...", 0.05)
+    # --- 2. 히스토리 초기화 (User Request) ---
+    # 매 실행마다 기억을 지워서, 워드프레스에서 삭제된 글을 다시 발행할 수 있게 함.
+    # 단, 이번 실행 중에 중복 발행되는 것을 막기 위해 빈 딕셔너리로 시작.
+    # history_file = os.path.join("stock_data", "published_history.json") # 로드 안 함
+    history = {} 
+    print("[INFO] 히스토리 초기화 완료 (삭제된 글 재발행 모드)")
 
-    # --- 2. 히스토리 로드 ---
-    history_file = os.path.join("stock_data", "published_history.json")
-    history = {}
-    if os.path.exists(history_file):
-        try:
-            with open(history_file, 'r', encoding='utf-8') as f:
-                history = json.load(f)
-        except:
-            pass
+    # --- 3. WP 최근 글 로드 (Batch Check) ---
+    # 루프 안에서 매번 호출하면 API 제한 걸림. 여기서 한 번에 300개 로드 (안전하게 범위 늘림).
+    print("[INFO] WP 최근 발행글 로드 중 (Batch - 300 limit)...")
+    recent_posts = wp_utils.get_recent_posts(limit=300)
+    print(f"[INFO] 최근 {len(recent_posts)}개 리포트 정보 로드 완료.")
 
     for i, item in enumerate(final_items):
         target_ticker = item['symbol']
