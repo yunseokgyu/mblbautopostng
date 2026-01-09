@@ -458,26 +458,48 @@ def process_grant_item(item, category_tag, dry_run, cat_ids):
     try:
         from image_factory import fetch_free_images
         
-        # 1. 제목으로 검색 시도
-        search_query = title
-        # 제목이 너무 길면 핵심 단어 추출이 어렵지만, Pexels는 긴 쿼리도 대충 처리함.
-        # 정 안되면 'Startup' 같은걸로 Fallback
+        # 1. 5장 채울 때까지 반복 검색
+        target_count = 5
+        collected_urls = []
         
-        img_urls = fetch_free_images(search_query, count=5)
-        if not img_urls:
-            print("   -> 제목 검색 실패, 'Startup' 키워드로 대체 검색")
-            img_urls = fetch_free_images("Startup business team", count=5)
+        # 검색어 후보군: [제목] + [랜덤 섞인 대체 키워드들]
+        import random
+        fallback_queries = [
+            "business meeting", "startup automation", "financial growth", 
+            "government office", "technology abstract", "office teamwork",
+            "signing contract", "successful business", "innovation lab",
+            "corporate strategy", "finance chart", "office handshake"
+        ]
+        random.shuffle(fallback_queries)
+        search_candidates = [title] + fallback_queries
+        
+        for q in search_candidates:
+            if len(collected_urls) >= target_count:
+                break
+                
+            needed = target_count - len(collected_urls)
+            print(f"   -> 이미지 검색 시도: '{q}' (필요: {needed})")
             
+            # Pexels 검색
+            new_urls = fetch_free_images(q, count=needed)
+            
+            # 중복 제거 후 추가
+            for u in new_urls:
+                if u not in collected_urls:
+                    collected_urls.append(u)
+            
+        # 5개로 자르기 (혹시 넘치면)
+        img_urls = collected_urls[:target_count]
+
         if img_urls:
-            print(f"   -> {len(img_urls)}개 이미지 준비됨 (Cloudinary Optimized)")
+            print(f"   -> [최종] {len(img_urls)}개 이미지 준비됨")
             
             # HTML 생성 (2열 그리드)
-            if img_urls:
-                images_html += '<div style="margin-top: 30px;"><h3>📷 관련 이미지</h3>'
-                images_html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
-                for u in img_urls:
-                    images_html += f'<img src="{u}" style="width: 48%; height: auto; object-fit: cover; border-radius: 5px; margin-bottom: 10px;" loading="lazy">'
-                images_html += '</div></div>'
+            images_html += '<div style="margin-top: 30px;"><h3>📷 관련 이미지</h3>'
+            images_html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
+            for u in img_urls:
+                images_html += f'<img src="{u}" style="width: 48%; height: auto; object-fit: cover; border-radius: 5px; margin-bottom: 10px;" loading="lazy">'
+            images_html += '</div></div>'
                 
     except Exception as e:
         print(f"   [Image Attachment Error] {e}")

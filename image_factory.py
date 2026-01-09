@@ -133,9 +133,20 @@ def fetch_free_images(query, count=1):
     print(f"📷 [{query}] 무료 이미지 {count}장 검색 중 (Pexels)...")
     try:
         import requests
+        import random
+        
         headers = {'Authorization': api_key}
-        params = {'query': query, 'per_page': count, 'orientation': 'landscape'}
+        # Randomize page to avoid duplicates
+        random_page = random.randint(1, 20)
+        params = {'query': query, 'per_page': count, 'orientation': 'landscape', 'page': random_page}
+        
         response = requests.get('https://api.pexels.com/v1/search', headers=headers, params=params)
+        
+        # If random page returns no results (too deep), try page 1
+        if response.status_code == 200 and not response.json().get('photos'):
+            print(f"   -> Page {random_page} empty, retrying Page 1...")
+            params['page'] = 1
+            response = requests.get('https://api.pexels.com/v1/search', headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
@@ -182,27 +193,31 @@ def create_text_image(text, subtext, output_filename="temp_featured.png"):
         bg_color = '#1a237e' # Deep Blue
         text_color = 'white'
         
-        plt.figure(figsize=(10, 6))
+        # OO Interface 사용 (State 오염 방지)
+        fig, ax = plt.subplots(figsize=(10, 6))
         
-        # 배경 채우기
-        plt.gca().set_facecolor(bg_color)
+        # 배경 색상 설정
+        fig.patch.set_facecolor(bg_color)
+        ax.set_facecolor(bg_color)
         
-        # 텍스트 그리기 (중앙 정렬)
-        plt.text(0.5, 0.6, text, 
-                 fontsize=60, color=text_color, fontweight='bold',
-                 ha='center', va='center')
+        # 텍스트 그리기
+        ax.text(0.5, 0.6, text, 
+                fontsize=60, color=text_color, fontweight='bold',
+                ha='center', va='center', transform=ax.transAxes)
                  
-        plt.text(0.5, 0.3, subtext, 
-                 fontsize=30, color='#ffab00', fontweight='normal', # Amber accent
-                 ha='center', va='center')
+        ax.text(0.5, 0.3, subtext, 
+                fontsize=30, color='#ffab00', fontweight='normal',
+                ha='center', va='center', transform=ax.transAxes)
         
         # 축 제거
-        plt.axis('off')
-        plt.tight_layout()
+        ax.axis('off')
         
-        # 여백 없이 저장 (facecolor 저장 시 적용)
-        plt.savefig(output_filename, facecolor=bg_color, bbox_inches='tight', pad_inches=0.5)
-        plt.close()
+        # 여백 없이 저장
+        plt.tight_layout()
+        fig.savefig(output_filename, facecolor=bg_color, bbox_inches='tight', pad_inches=0.5)
+        
+        # 메모리 해제
+        plt.close(fig)
         
         return os.path.abspath(output_filename)
         
