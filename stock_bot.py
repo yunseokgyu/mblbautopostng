@@ -201,13 +201,35 @@ def run_stock_job():
                 print("[WARNING] 분석 보고서 생성 실패")
                 continue
 
-            # 6. 워드프레스 발행
-            import markdown
             try:
                 html_body = markdown.markdown(report_markdown)
             except ImportError:
                 html_body = f"<pre>{report_markdown}</pre>"
             
+            # --- [FEATURED IMAGE] 대표 이미지 생성 ---
+            # 태그 정보(tag_str)를 활용 (예: [S&P500])
+            featured_media_id = None
+            
+            # 태그 정리: "[S&P500/배당킹]" -> "S&P500 / 배당킹" 제거 후 깔끔하게
+            clean_subtext = "Stock Report"
+            if tag_str:
+                clean_subtext = tag_str.replace("[", "").replace("]", "").replace("/", " & ")
+            
+            badge_path = image_factory.create_text_image(target_ticker, clean_subtext, f"badge_{target_ticker}.png")
+            
+            if badge_path:
+                print(f"[Featured] 워드프레스에 썸네일 업로드 중...")
+                media_id = wp_utils.upload_image_to_wordpress(badge_path)
+                if media_id:
+                    featured_media_id = media_id
+                
+                # 임시 파일 삭제
+                try:
+                    os.remove(badge_path)
+                except:
+                    pass
+            # ------------------------------------------
+
             # (A) 차트 HTML (최상단)
             chart_html = ""
             if chart_url:
@@ -371,7 +393,7 @@ def run_stock_job():
             cat_id = wp_utils.ensure_category("stock")
             cat_ids = [cat_id] if cat_id else []
             
-            result = wp_utils.post_article(title, final_content, category_ids=cat_ids)
+            result = wp_utils.post_article(title, final_content, category_ids=cat_ids, featured_media=featured_media_id)
             
             if result:
                 print(f"[SUCCESS] [{target_ticker} {r_type}] 발행 완료.")

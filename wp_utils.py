@@ -22,7 +22,7 @@ def get_auth_header():
         'Content-Type': 'application/json'
     }
 
-def post_article(title, content, category_ids=None):
+def post_article(title, content, category_ids=None, featured_media=None):
     """
     워드프레스에 글을 발행합니다.
     :param title: 글 제목
@@ -44,6 +44,9 @@ def post_article(title, content, category_ids=None):
     
     if category_ids:
         post_data['categories'] = category_ids
+
+    if featured_media and featured_media > 0:
+        post_data['featured_media'] = featured_media
 
     print(f"📤 워드프레스 전송 중... 제목: {title}")
     
@@ -96,9 +99,10 @@ def upload_image_to_wordpress(image_path):
         
         if response.status_code == 201:
             image_info = response.json()
+            image_id = image_info.get('id')
             image_url = image_info.get('source_url')
-            print(f"✅ 이미지 업로드 성공! URL: {image_url}")
-            return image_url
+            print(f"✅ 이미지 업로드 성공! ID: {image_id}, URL: {image_url}")
+            return image_id # Return ID for featured_media
         else:
             print(f"❌ 이미지 업로드 실패. 응답: {response.text}")
             return None

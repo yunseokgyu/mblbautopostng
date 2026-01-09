@@ -167,3 +167,45 @@ def fetch_free_images(query, count=1):
     except Exception as e:
         print(f"❌ 무료 이미지 검색 실패: {e}")
         return []
+
+def create_text_image(text, subtext, output_filename="temp_featured.png"):
+    """
+    텍스트 기반의 대표 이미지를 생성하고 로컬 파일로 저장합니다.
+    :param text: 메인 텍스트 (예: TSLA)
+    :param subtext: 서브 텍스트 (예: S&P500)
+    :param output_filename: 저장할 파일명
+    :return: 저장된 파일 경로 (str) 또는 None
+    """
+    print(f"🎨 대표 이미지 생성 중... ({text} | {subtext})")
+    try:
+        # 배경색 및 텍스트 색상
+        bg_color = '#1a237e' # Deep Blue
+        text_color = 'white'
+        
+        plt.figure(figsize=(10, 6))
+        
+        # 배경 채우기
+        plt.gca().set_facecolor(bg_color)
+        
+        # 텍스트 그리기 (중앙 정렬)
+        plt.text(0.5, 0.6, text, 
+                 fontsize=60, color=text_color, fontweight='bold',
+                 ha='center', va='center')
+                 
+        plt.text(0.5, 0.3, subtext, 
+                 fontsize=30, color='#ffab00', fontweight='normal', # Amber accent
+                 ha='center', va='center')
+        
+        # 축 제거
+        plt.axis('off')
+        plt.tight_layout()
+        
+        # 여백 없이 저장 (facecolor 저장 시 적용)
+        plt.savefig(output_filename, facecolor=bg_color, bbox_inches='tight', pad_inches=0.5)
+        plt.close()
+        
+        return os.path.abspath(output_filename)
+        
+    except Exception as e:
+        print(f"❌ 대표 이미지 생성 실패: {e}")
+        return None

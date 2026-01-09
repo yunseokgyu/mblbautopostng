@@ -31,3 +31,17 @@ jobs:
         WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
       run: |
         python stock_bot.py # --loop 옵션 없이 1회 실행
+
+    - name: Commit and Push History
+      # 봇이 history 파일을 업데이트했으면 그걸 저장소에 반영
+      run: |
+        git config --global user.name "StockBot Action"
+        git config --global user.email "action@github.com"
+        
+        # 변경된 파일이 있는지 확인
+        git add stock_data/published_history.json bot_status_stock.json
+        
+        # 변경사항이 있으면 커밋 & 푸시
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Update bot history [skip ci]" && git push)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

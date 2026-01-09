@@ -526,6 +526,26 @@ if __name__ == "__main__":
     parser.add_argument('--post', action='store_true', help='Actually post to WordPress')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of posts')
     
+    parser.add_argument('--loop', action='store_true', help='Run in infinite loop mode')
+    
     args = parser.parse_args()
     
-    run_grant_job(dry_run=not args.post, limit=args.limit)
+    if args.loop:
+        print("[SYSTEM] Grant Bot Starting (Loop Mode)")
+        import time
+        while True:
+            try:
+                run_grant_job(dry_run=not args.post, limit=args.limit)
+                print("[SYSTEM] Cycle finished. Sleeping for 6 hours...")
+                update_status("idle", "[WAIT] 다음 사이클 대기 중 (6시간)", 1.0)
+                time.sleep(6 * 3600)
+            except KeyboardInterrupt:
+                print("[SYSTEM] Bot stopped by user.")
+                break
+            except Exception as e:
+                print(f"[CRITICAL ERROR] Bot crashed: {e}")
+                update_status("error", f"[ERROR] 봇 크래시: {str(e)}", 0.0)
+                print("[SYSTEM] Restarting in 60 seconds...")
+                time.sleep(60)
+    else:
+        run_grant_job(dry_run=not args.post, limit=args.limit)

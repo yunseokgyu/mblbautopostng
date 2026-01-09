@@ -505,6 +505,21 @@ with tab3:
                 args.append("--post")
             
             run_bot("grant_bot.py", args)
+            
+        st.write("---")
+        st.subheader("자동 실행 (무한 루프)")
+        st.caption("6시간마다 자동으로 실행됩니다. (백그라운드)")
+        
+        if st.button("⚡ 지원금 봇 자동모드 시작", key="grant_auto_start"):
+            try:
+                # 백그라운드 실행 (Non-blocking)
+                cmd = ["python", "grant_bot.py", "--loop", "--post"]
+                subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                st.toast("지원금 봇 자동 모드가 시작되었습니다! (새 콘솔 창 확인)", icon="✅")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"실행 실패: {e}")
 
 # --- Tab 4: 발행된 글 ---
 with tab4:
