@@ -1,9 +1,9 @@
 name: Grant Bot Automation
 
 on:
-  schedule:
-    # Run at 00:00, 06:00, 12:00, 18:00 UTC (Approx 9am, 3pm, 9pm, 3am KST)
-    - cron: '0 0,6,12,18 * * *'
+  # schedule:
+  #   # Run at 00:00, 06:00, 12:00, 18:00 UTC (Approx 9am, 3pm, 9pm, 3am KST)
+  #   - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
 
 permissions:

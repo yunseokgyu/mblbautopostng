@@ -1,8 +1,8 @@
 name: Stock Bot Hourly Run
 
 on:
-  schedule:
-    - cron: '0 * * * *'  # 매 시간 0분에 실행 (24회/일)
+  # schedule:
+  #   - cron: '0 */6 * * *' # 6시간마다 실행 - 정지 요청으로 주석 처리0분에 실행 (24회/일) - 정지 요청으로 주석 처리
   workflow_dispatch:      # 수동 실행 가능
 
 jobs:
