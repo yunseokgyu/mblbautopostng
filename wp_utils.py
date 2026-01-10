@@ -45,10 +45,16 @@ def post_article(title, content, category_ids=None, featured_media=None):
     if category_ids:
         post_data['categories'] = category_ids
 
-    if featured_media and featured_media > 0:
-        post_data['featured_media'] = featured_media
+    if featured_media:
+        try:
+            f_id = int(featured_media)
+            if f_id > 0:
+                post_data['featured_media'] = f_id
+        except ValueError:
+            print(f"⚠️ Warning: Invalid featured_media ID: {featured_media}")
 
     print(f"📤 워드프레스 전송 중... 제목: {title}")
+    # print(f"   [Debug payload] featured_media: {post_data.get('featured_media')}")
     
     try:
         response = requests.post(f"{site_url}/wp-json/wp/v2/posts", headers=headers, json=post_data)

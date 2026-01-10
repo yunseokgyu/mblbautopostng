@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 import json
+import markdown
 
 # 환경 변수 로드 (API Key 등)
 core.load_dotenv('credentials.env')
@@ -47,8 +48,11 @@ def load_config():
     with open('bot_config.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def run_stock_job():
-    print("[INFO] [주식 담당] 업무 시작")
+def run_stock_job(limit=None):
+    """
+    주식 리포트 발행 메인 잡
+    """
+    print(f"[INFO] Loading config & tickers... (Limit: {limit})")
     update_status("running", "[START] 봇 초기화 및 종목 리스트 로드 중...", 0.0)
     
     config = load_config()
@@ -94,19 +98,27 @@ def run_stock_job():
     # --- 2. 히스토리 초기화 (User Request) ---
     # 매 실행마다 기억을 지워서, 워드프레스에서 삭제된 글을 다시 발행할 수 있게 함.
     # 단, 이번 실행 중에 중복 발행되는 것을 막기 위해 빈 딕셔너리로 시작.
-    # history_file = os.path.join("stock_data", "published_history.json") # 로드 안 함
+    history_file = os.path.join("stock_data", "published_history.json")
     history = {} 
     print("[INFO] 히스토리 초기화 완료 (삭제된 글 재발행 모드)")
 
     # --- 3. WP 최근 글 로드 (Batch Check) ---
     # 루프 안에서 매번 호출하면 API 제한 걸림. 여기서 한 번에 300개 로드 (안전하게 범위 늘림).
-    print("[INFO] WP 최근 발행글 로드 중 (Batch - 300 limit)...")
-    recent_posts = wp_utils.get_recent_posts(limit=300)
+    print("[INFO] WP 최근 발행글 로드 중 (Batch - 100 limit)...")
+    recent_posts = wp_utils.get_recent_posts(limit=100)
     print(f"[INFO] 최근 {len(recent_posts)}개 리포트 정보 로드 완료.")
 
+    success_count = 0
+
     for i, item in enumerate(final_items):
+        # Limit Check
+        if limit and success_count >= limit:
+            print(f"[INFO] Limit reached ({limit}). Stopping.")
+            break
+            
         target_ticker = item['symbol']
         group_name = item['group']
+        tag_str = f"[{group_name}]"
         
         print(f"\n[PROGRESS {i+1}/{total_tickers}] Processing {target_ticker} ({group_name})...")
         
@@ -399,6 +411,7 @@ def run_stock_job():
                 print(f"[SUCCESS] [{target_ticker} {r_type}] 발행 완료.")
                 # 히스토리 업데이트
                 history[unique_key] = True
+                success_count += 1
                 with open(history_file, 'w', encoding='utf-8') as f:
                     json.dump(history, f, indent=4, ensure_ascii=False)
             else:
@@ -409,25 +422,26 @@ def run_stock_job():
                     json.dump(history, f, indent=4, ensure_ascii=False)
 
 
+
+
+
+import argparse
 import time
 
 if __name__ == "__main__":
-    import sys
+    parser = argparse.ArgumentParser(description='Stock Bot')
+    parser.add_argument('--loop', action='store_true', help='Run in infinite loop')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of tickers to process')
     
-    # 기본은 1회 실행 (대시보드 수동 실행 호환용)
-    # python stock_bot.py --loop 로 실행 시 무한 루프
+    args = parser.parse_args()
     
-    if len(sys.argv) > 1 and sys.argv[1] == "--loop":
-        mode = "loop"
-    else:
-        mode = "once"
-        
-    print(f"[SYSTEM] Stock Bot Starting (Mode: {mode})")
+    mode = "loop" if args.loop else "once"
+    print(f"[SYSTEM] Stock Bot Starting (Mode: {mode}, Limit: {args.limit})")
     
     if mode == "loop":
         while True:
             try:
-                run_stock_job()
+                run_stock_job(limit=args.limit)
                 print("[SYSTEM] Cycle finished. Sleeping for 1 hour...")
                 update_status("idle", "[WAIT] 다음 사이클 대기 중 (1시간)", 1.0)
                 time.sleep(3600) 
@@ -440,9 +454,8 @@ if __name__ == "__main__":
                 print("[SYSTEM] Restarting in 60 seconds...")
                 time.sleep(60)
     else:
-        # 1회 실행
         try:
-            run_stock_job()
+            run_stock_job(limit=args.limit)
             print("[SYSTEM] Job finished.")
         except Exception as e:
             print(f"[ERROR] Execution failed: {e}")
